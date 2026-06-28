@@ -12,8 +12,8 @@ An MCP server for [Wave Accounting](https://waveapps.com), providing access to i
 | **Customers** | 6 | List, get, create, update, delete, search by name/email |
 | **Products** | 5 | List, get, create, update, archive products and services |
 | **Accounts** | 4 | List, get, create, update chart of accounts |
-| **Transactions** | 6 | List, get, create, update, categorize, list attachments |
-| **Bills** | 6 | List, get, create, update, list/record bill payments |
+| **Transactions** | 6 | _Unsupported by Wave's public API_ - no transaction reads, no update/categorize mutations; the only write is the beta `moneyTransactionCreate` (blind write, no read-back). These tools return a clear "unsupported" error. Use the SP-API MCP or a Wave web-UI CSV export. |
+| **Bills** | 6 | _Unsupported by Wave's public API_ - no bill reads and zero bill mutations. These tools return a clear "unsupported" error. Use the SP-API MCP or a Wave web-UI CSV export. |
 | **Estimates** | 6 | List, get, create, update, send, convert to invoice |
 | **Taxes** | 3 | List, get, create sales taxes |
 | **Businesses** | 3 | List, get current, get by ID |

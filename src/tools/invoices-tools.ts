@@ -13,10 +13,10 @@ export function registerInvoiceTools(client: WaveClient) {
         type: 'object',
         properties: {
           businessId: { type: 'string', description: 'Business ID (required if not set globally)' },
-          status: { 
-            type: 'string', 
-            enum: ['DRAFT', 'SENT', 'VIEWED', 'PAID', 'PARTIAL', 'OVERDUE', 'APPROVED'],
-            description: 'Filter by invoice status' 
+          status: {
+            type: 'string',
+            enum: ['DRAFT', 'OVERDUE', 'OVERPAID', 'PAID', 'PARTIAL', 'SAVED', 'SENT', 'UNPAID', 'VIEWED'],
+            description: 'Filter by invoice status'
           },
           customerId: { type: 'string', description: 'Filter by customer ID' },
           page: { type: 'number', description: 'Page number (default: 1)' },
@@ -28,9 +28,9 @@ export function registerInvoiceTools(client: WaveClient) {
         if (!businessId) throw new Error('businessId required');
 
         const query = `
-          query GetInvoices($businessId: ID!, $page: Int!, $pageSize: Int!) {
+          query GetInvoices($businessId: ID!, $page: Int!, $pageSize: Int!, $status: InvoiceStatus, $customerId: ID) {
             business(id: $businessId) {
-              invoices(page: $page, pageSize: $pageSize) {
+              invoices(page: $page, pageSize: $pageSize, status: $status, customerId: $customerId) {
                 pageInfo {
                   currentPage
                   totalPages
@@ -72,6 +72,9 @@ export function registerInvoiceTools(client: WaveClient) {
           businessId,
           page: args.page || 1,
           pageSize: Math.min(args.pageSize || 20, 100),
+          // Optional server-side filters; omitted keys default to null (no filter).
+          status: args.status,
+          customerId: args.customerId,
         });
 
         return result.business.invoices;
@@ -121,9 +124,8 @@ export function registerInvoiceTools(client: WaveClient) {
                     name
                   }
                   taxes {
-                    id
-                    name
-                    rate
+                    salesTax { id name }
+                    amount { value }
                   }
                 }
                 total {
@@ -308,12 +310,9 @@ export function registerInvoiceTools(client: WaveClient) {
         required: ['invoiceId'],
       },
       handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
         const mutation = `
-          mutation UpdateInvoice($input: InvoiceUpdateInput!) {
-            invoiceUpdate(input: $input) {
+          mutation PatchInvoice($input: InvoicePatchInput!) {
+            invoicePatch(input: $input) {
               invoice {
                 id
                 invoiceNumber
@@ -333,9 +332,9 @@ export function registerInvoiceTools(client: WaveClient) {
           }
         `;
 
+        // InvoicePatchInput is keyed by `id` and takes no businessId.
         const input = {
-          businessId,
-          invoiceId: args.invoiceId,
+          id: args.invoiceId,
           title: args.title,
           subhead: args.subhead,
           footer: args.footer,
@@ -345,11 +344,11 @@ export function registerInvoiceTools(client: WaveClient) {
 
         const result = await client.mutate(mutation, { input });
 
-        if (!result.invoiceUpdate.didSucceed) {
-          throw new Error(`Failed to update invoice: ${JSON.stringify(result.invoiceUpdate.inputErrors)}`);
+        if (!result.invoicePatch.didSucceed) {
+          throw new Error(`Failed to update invoice: ${JSON.stringify(result.invoicePatch.inputErrors)}`);
         }
 
-        return result.invoiceUpdate.invoice;
+        return result.invoicePatch.invoice;
       },
     },
 

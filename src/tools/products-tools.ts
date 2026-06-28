@@ -135,12 +135,10 @@ export function registerProductTools(client: WaveClient) {
           businessId: { type: 'string', description: 'Business ID' },
           name: { type: 'string', description: 'Product/service name' },
           description: { type: 'string', description: 'Product description' },
-          unitPrice: { type: 'string', description: 'Default unit price' },
+          unitPrice: { type: 'string', description: 'Default unit price (required by Wave)' },
           incomeAccountId: { type: 'string', description: 'Income account ID' },
-          isSold: { type: 'boolean', description: 'Is this product sold to customers? (default: true)' },
-          isBought: { type: 'boolean', description: 'Is this product bought from vendors? (default: false)' },
         },
-        required: ['name'],
+        required: ['name', 'unitPrice'],
       },
       handler: async (args: any) => {
         const businessId = args.businessId || client.getBusinessId();
@@ -177,8 +175,6 @@ export function registerProductTools(client: WaveClient) {
             description: args.description,
             unitPrice: args.unitPrice,
             incomeAccountId: args.incomeAccountId,
-            isSold: args.isSold ?? true,
-            isBought: args.isBought ?? false,
           },
         });
 
@@ -205,12 +201,9 @@ export function registerProductTools(client: WaveClient) {
         required: ['productId'],
       },
       handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
         const mutation = `
-          mutation UpdateProduct($input: ProductUpdateInput!) {
-            productUpdate(input: $input) {
+          mutation PatchProduct($input: ProductPatchInput!) {
+            productPatch(input: $input) {
               product {
                 id
                 name
@@ -230,10 +223,10 @@ export function registerProductTools(client: WaveClient) {
           }
         `;
 
+        // ProductPatchInput is keyed by `id` and takes no businessId.
         const result = await client.mutate(mutation, {
           input: {
-            businessId,
-            productId: args.productId,
+            id: args.productId,
             name: args.name,
             description: args.description,
             unitPrice: args.unitPrice,
@@ -241,11 +234,11 @@ export function registerProductTools(client: WaveClient) {
           },
         });
 
-        if (!result.productUpdate.didSucceed) {
-          throw new Error(`Failed to update product: ${JSON.stringify(result.productUpdate.inputErrors)}`);
+        if (!result.productPatch.didSucceed) {
+          throw new Error(`Failed to update product: ${JSON.stringify(result.productPatch.inputErrors)}`);
         }
 
-        return result.productUpdate.product;
+        return result.productPatch.product;
       },
     },
 

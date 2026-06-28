@@ -1,14 +1,26 @@
 /**
  * Wave Transaction Tools
+ *
+ * UNSUPPORTED by Wave's public GraphQL API (verified by live introspection 2026-06-28):
+ * - Business exposes no `transactions` field and there is no `transaction(id:)` query,
+ *   so transactions cannot be listed, fetched, or have attachments read.
+ * - There are no `transactionUpdate` / `transactionCategorize` mutations.
+ * - The only transaction *write* is the beta `moneyTransactionCreate`, which requires
+ *   full double-entry input (anchor + lineItems) and has no matching read query to
+ *   verify the result - a blind write, unsafe to expose for bookkeeping.
+ *
+ * Each tool is kept registered (so callers get a clear explanation rather than a
+ * "tool not found" or a confusing GraphQL field error) but fails via unsupported().
  */
 
 import type { WaveClient } from '../client.js';
-import type { Transaction } from '../types/index.js';
+import { unsupported } from './unsupported.js';
 
-export function registerTransactionTools(client: WaveClient) {
+export function registerTransactionTools(_client: WaveClient) {
+  const UNSUPPORTED = '[Unsupported by Wave public API] ';
   return {
     wave_list_transactions: {
-      description: 'List transactions for a business with filtering options',
+      description: UNSUPPORTED + 'List transactions (Wave public API exposes no transaction reads; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -20,77 +32,11 @@ export function registerTransactionTools(client: WaveClient) {
           pageSize: { type: 'number', description: 'Results per page (default: 50)' },
         },
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const query = `
-          query GetTransactions($businessId: ID!, $page: Int!, $pageSize: Int!) {
-            business(id: $businessId) {
-              transactions(page: $page, pageSize: $pageSize) {
-                pageInfo {
-                  currentPage
-                  totalPages
-                  totalCount
-                }
-                edges {
-                  node {
-                    id
-                    description
-                    amount {
-                      value
-                      currency { code }
-                    }
-                    date
-                    accountTransaction {
-                      account {
-                        id
-                        name
-                        type { name }
-                      }
-                      amount { value }
-                    }
-                    createdAt
-                    modifiedAt
-                  }
-                }
-              }
-            }
-          }
-        `;
-
-        const result = await client.query(query, {
-          businessId,
-          page: args.page || 1,
-          pageSize: Math.min(args.pageSize || 50, 100),
-        });
-
-        let transactions = result.business.transactions.edges.map((e: any) => e.node);
-
-        // Client-side filtering
-        if (args.accountId) {
-          transactions = transactions.filter((t: any) => 
-            t.accountTransaction?.account?.id === args.accountId
-          );
-        }
-
-        if (args.startDate) {
-          transactions = transactions.filter((t: any) => t.date >= args.startDate);
-        }
-
-        if (args.endDate) {
-          transactions = transactions.filter((t: any) => t.date <= args.endDate);
-        }
-
-        return {
-          transactions,
-          pageInfo: result.business.transactions.pageInfo,
-        };
-      },
+      handler: async () => unsupported('Listing money transactions'),
     },
 
     wave_get_transaction: {
-      description: 'Get detailed information about a specific transaction',
+      description: UNSUPPORTED + 'Get a transaction (Wave public API exposes no transaction reads; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -99,47 +45,11 @@ export function registerTransactionTools(client: WaveClient) {
         },
         required: ['transactionId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const query = `
-          query GetTransaction($businessId: ID!, $transactionId: ID!) {
-            business(id: $businessId) {
-              transaction(id: $transactionId) {
-                id
-                description
-                amount {
-                  value
-                  currency { code symbol }
-                }
-                date
-                accountTransaction {
-                  account {
-                    id
-                    name
-                    type { name }
-                  }
-                  amount { value }
-                }
-                createdAt
-                modifiedAt
-              }
-            }
-          }
-        `;
-
-        const result = await client.query(query, {
-          businessId,
-          transactionId: args.transactionId,
-        });
-
-        return result.business.transaction;
-      },
+      handler: async () => unsupported('Fetching a money transaction'),
     },
 
     wave_create_transaction: {
-      description: 'Create a new transaction',
+      description: UNSUPPORTED + 'Create a transaction (only the beta moneyTransactionCreate exists; blind write, no read-back; use SP-API)',
       parameters: {
         type: 'object',
         properties: {
@@ -151,57 +61,17 @@ export function registerTransactionTools(client: WaveClient) {
         },
         required: ['description', 'date', 'amount', 'accountId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const mutation = `
-          mutation CreateTransaction($input: TransactionCreateInput!) {
-            transactionCreate(input: $input) {
-              transaction {
-                id
-                description
-                amount {
-                  value
-                  currency { code }
-                }
-                date
-                accountTransaction {
-                  account {
-                    id
-                    name
-                  }
-                }
-              }
-              didSucceed
-              inputErrors {
-                message
-                path
-              }
-            }
-          }
-        `;
-
-        const result = await client.mutate(mutation, {
-          input: {
-            businessId,
-            description: args.description,
-            date: args.date,
-            amount: args.amount,
-            accountId: args.accountId,
-          },
-        });
-
-        if (!result.transactionCreate.didSucceed) {
-          throw new Error(`Failed to create transaction: ${JSON.stringify(result.transactionCreate.inputErrors)}`);
-        }
-
-        return result.transactionCreate.transaction;
-      },
+      handler: async () =>
+        unsupported(
+          'Creating a money transaction via a simple description/amount/account',
+          'There is no transactionCreate mutation; the only write path is the beta ' +
+            'moneyTransactionCreate, which requires full double-entry input (anchor + ' +
+            'lineItems) and has no read query to verify the result.'
+        ),
     },
 
     wave_update_transaction: {
-      description: 'Update an existing transaction',
+      description: UNSUPPORTED + 'Update a transaction (no transactionUpdate mutation exists; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -212,46 +82,11 @@ export function registerTransactionTools(client: WaveClient) {
         },
         required: ['transactionId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const mutation = `
-          mutation UpdateTransaction($input: TransactionUpdateInput!) {
-            transactionUpdate(input: $input) {
-              transaction {
-                id
-                description
-                date
-              }
-              didSucceed
-              inputErrors {
-                message
-                path
-              }
-            }
-          }
-        `;
-
-        const result = await client.mutate(mutation, {
-          input: {
-            businessId,
-            transactionId: args.transactionId,
-            description: args.description,
-            date: args.date,
-          },
-        });
-
-        if (!result.transactionUpdate.didSucceed) {
-          throw new Error(`Failed to update transaction: ${JSON.stringify(result.transactionUpdate.inputErrors)}`);
-        }
-
-        return result.transactionUpdate.transaction;
-      },
+      handler: async () => unsupported('Updating a money transaction'),
     },
 
     wave_categorize_transaction: {
-      description: 'Categorize/recategorize a transaction to a different account',
+      description: UNSUPPORTED + 'Categorize a transaction (no transactionCategorize mutation exists; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -261,50 +96,11 @@ export function registerTransactionTools(client: WaveClient) {
         },
         required: ['transactionId', 'accountId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const mutation = `
-          mutation CategorizeTransaction($input: TransactionCategorizeInput!) {
-            transactionCategorize(input: $input) {
-              transaction {
-                id
-                accountTransaction {
-                  account {
-                    id
-                    name
-                    type { name }
-                  }
-                }
-              }
-              didSucceed
-              inputErrors {
-                message
-                path
-              }
-            }
-          }
-        `;
-
-        const result = await client.mutate(mutation, {
-          input: {
-            businessId,
-            transactionId: args.transactionId,
-            accountId: args.accountId,
-          },
-        });
-
-        if (!result.transactionCategorize.didSucceed) {
-          throw new Error(`Failed to categorize transaction: ${JSON.stringify(result.transactionCategorize.inputErrors)}`);
-        }
-
-        return result.transactionCategorize.transaction;
-      },
+      handler: async () => unsupported('Categorizing a money transaction'),
     },
 
     wave_list_transaction_attachments: {
-      description: 'List attachments (receipts, documents) for a transaction',
+      description: UNSUPPORTED + 'List transaction attachments (Wave public API exposes no transaction reads; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -313,35 +109,7 @@ export function registerTransactionTools(client: WaveClient) {
         },
         required: ['transactionId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const query = `
-          query GetTransactionAttachments($businessId: ID!, $transactionId: ID!) {
-            business(id: $businessId) {
-              transaction(id: $transactionId) {
-                id
-                attachments {
-                  id
-                  filename
-                  url
-                  mimeType
-                  size
-                  createdAt
-                }
-              }
-            }
-          }
-        `;
-
-        const result = await client.query(query, {
-          businessId,
-          transactionId: args.transactionId,
-        });
-
-        return result.business.transaction.attachments;
-      },
+      handler: async () => unsupported('Listing transaction attachments'),
     },
   };
 }

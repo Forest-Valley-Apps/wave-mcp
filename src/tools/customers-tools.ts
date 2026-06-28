@@ -41,8 +41,8 @@ export function registerCustomerTools(client: WaveClient) {
                       addressLine1
                       addressLine2
                       city
-                      provinceCode
-                      countryCode
+                      province { code name }
+                      country { code name }
                       postalCode
                     }
                     currency { code }
@@ -92,8 +92,8 @@ export function registerCustomerTools(client: WaveClient) {
                   addressLine1
                   addressLine2
                   city
-                  provinceCode
-                  countryCode
+                  province { code name }
+                  country { code name }
                   postalCode
                 }
                 currency { code symbol }
@@ -160,8 +160,8 @@ export function registerCustomerTools(client: WaveClient) {
                 address {
                   addressLine1
                   city
-                  provinceCode
-                  countryCode
+                  province { code name }
+                  country { code name }
                   postalCode
                 }
                 currency { code }
@@ -226,12 +226,9 @@ export function registerCustomerTools(client: WaveClient) {
         required: ['customerId'],
       },
       handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
         const mutation = `
-          mutation UpdateCustomer($input: CustomerUpdateInput!) {
-            customerUpdate(input: $input) {
+          mutation PatchCustomer($input: CustomerPatchInput!) {
+            customerPatch(input: $input) {
               customer {
                 id
                 name
@@ -242,8 +239,8 @@ export function registerCustomerTools(client: WaveClient) {
                   addressLine1
                   addressLine2
                   city
-                  provinceCode
-                  countryCode
+                  province { code name }
+                  country { code name }
                   postalCode
                 }
               }
@@ -256,9 +253,9 @@ export function registerCustomerTools(client: WaveClient) {
           }
         `;
 
+        // CustomerPatchInput is keyed by `id` and takes no businessId.
         const input: any = {
-          businessId,
-          customerId: args.customerId,
+          id: args.customerId,
           name: args.name,
           firstName: args.firstName,
           lastName: args.lastName,
@@ -278,11 +275,11 @@ export function registerCustomerTools(client: WaveClient) {
 
         const result = await client.mutate(mutation, { input });
 
-        if (!result.customerUpdate.didSucceed) {
-          throw new Error(`Failed to update customer: ${JSON.stringify(result.customerUpdate.inputErrors)}`);
+        if (!result.customerPatch.didSucceed) {
+          throw new Error(`Failed to update customer: ${JSON.stringify(result.customerPatch.inputErrors)}`);
         }
 
-        return result.customerUpdate.customer;
+        return result.customerPatch.customer;
       },
     },
 
@@ -342,8 +339,11 @@ export function registerCustomerTools(client: WaveClient) {
         const businessId = args.businessId || client.getBusinessId();
         if (!businessId) throw new Error('businessId required');
 
+        // Wave has no server-side customer search, so filtering is done client-side
+        // below. The query must NOT declare an unused $query variable (Wave rejects
+        // queries with unused variables: GRAPHQL_VALIDATION_FAILED).
         const query = `
-          query SearchCustomers($businessId: ID!, $query: String!) {
+          query SearchCustomers($businessId: ID!) {
             business(id: $businessId) {
               customers(page: 1, pageSize: 100) {
                 edges {
@@ -355,8 +355,8 @@ export function registerCustomerTools(client: WaveClient) {
                     lastName
                     address {
                       city
-                      provinceCode
-                      countryCode
+                      province { code name }
+                      country { code name }
                     }
                   }
                 }
@@ -365,10 +365,7 @@ export function registerCustomerTools(client: WaveClient) {
           }
         `;
 
-        const result = await client.query(query, {
-          businessId,
-          query: args.query,
-        });
+        const result = await client.query(query, { businessId });
 
         // Client-side filtering since Wave API doesn't support search query parameter
         const searchTerm = args.query.toLowerCase();

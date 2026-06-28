@@ -1,83 +1,42 @@
 /**
  * Wave Bill Tools (Bills Payable)
+ *
+ * UNSUPPORTED by Wave's public GraphQL API (verified by live introspection 2026-06-28):
+ * the public schema has no bill surface at all - Business exposes no `bills`/`bill(id:)`
+ * field, and there are zero bill mutations (no billCreate / billUpdate / billPaymentCreate).
+ * So bills cannot be listed, fetched, created, updated, or paid via this API.
+ *
+ * Each tool is kept registered (so callers get a clear explanation rather than a
+ * "tool not found" or a confusing GraphQL field error) but fails via unsupported().
  */
 
 import type { WaveClient } from '../client.js';
-import type { Bill } from '../types/index.js';
+import { unsupported } from './unsupported.js';
 
-export function registerBillTools(client: WaveClient) {
+export function registerBillTools(_client: WaveClient) {
+  const UNSUPPORTED = '[Unsupported by Wave public API] ';
   return {
     wave_list_bills: {
-      description: 'List bills (accounts payable) for a business',
+      description: UNSUPPORTED + 'List bills (Wave public API has no bill surface; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
           businessId: { type: 'string', description: 'Business ID' },
-          status: { 
-            type: 'string', 
+          status: {
+            type: 'string',
             enum: ['DRAFT', 'APPROVED', 'PAID', 'PARTIAL'],
-            description: 'Filter by bill status' 
+            description: 'Filter by bill status'
           },
           vendorId: { type: 'string', description: 'Filter by vendor ID' },
           page: { type: 'number', description: 'Page number (default: 1)' },
           pageSize: { type: 'number', description: 'Results per page (default: 20)' },
         },
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const query = `
-          query GetBills($businessId: ID!, $page: Int!, $pageSize: Int!) {
-            business(id: $businessId) {
-              bills(page: $page, pageSize: $pageSize) {
-                pageInfo {
-                  currentPage
-                  totalPages
-                  totalCount
-                }
-                edges {
-                  node {
-                    id
-                    billNumber
-                    status
-                    billDate
-                    dueDate
-                    vendor {
-                      id
-                      name
-                      email
-                    }
-                    total {
-                      value
-                      currency { code }
-                    }
-                    amountDue {
-                      value
-                      currency { code }
-                    }
-                    amountPaid { value }
-                    createdAt
-                    modifiedAt
-                  }
-                }
-              }
-            }
-          }
-        `;
-
-        const result = await client.query(query, {
-          businessId,
-          page: args.page || 1,
-          pageSize: Math.min(args.pageSize || 20, 100),
-        });
-
-        return result.business.bills;
-      },
+      handler: async () => unsupported('Listing bills'),
     },
 
     wave_get_bill: {
-      description: 'Get detailed information about a specific bill',
+      description: UNSUPPORTED + 'Get a bill (Wave public API has no bill surface; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -86,67 +45,11 @@ export function registerBillTools(client: WaveClient) {
         },
         required: ['billId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const query = `
-          query GetBill($businessId: ID!, $billId: ID!) {
-            business(id: $businessId) {
-              bill(id: $billId) {
-                id
-                billNumber
-                status
-                billDate
-                dueDate
-                vendor {
-                  id
-                  name
-                  email
-                }
-                items {
-                  description
-                  quantity
-                  unitPrice
-                  total { value }
-                  account {
-                    id
-                    name
-                  }
-                  taxes {
-                    id
-                    name
-                    rate
-                  }
-                }
-                total {
-                  value
-                  currency { code symbol }
-                }
-                amountDue {
-                  value
-                  currency { code }
-                }
-                amountPaid { value }
-                memo
-                createdAt
-                modifiedAt
-              }
-            }
-          }
-        `;
-
-        const result = await client.query(query, {
-          businessId,
-          billId: args.billId,
-        });
-
-        return result.business.bill;
-      },
+      handler: async () => unsupported('Fetching a bill'),
     },
 
     wave_create_bill: {
-      description: 'Create a new bill',
+      description: UNSUPPORTED + 'Create a bill (no billCreate mutation exists; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -174,50 +77,11 @@ export function registerBillTools(client: WaveClient) {
         },
         required: ['vendorId', 'billDate', 'items'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const mutation = `
-          mutation CreateBill($input: BillCreateInput!) {
-            billCreate(input: $input) {
-              bill {
-                id
-                billNumber
-                status
-                total { value currency { code } }
-              }
-              didSucceed
-              inputErrors {
-                message
-                path
-              }
-            }
-          }
-        `;
-
-        const input = {
-          businessId,
-          vendorId: args.vendorId,
-          billDate: args.billDate,
-          dueDate: args.dueDate,
-          billNumber: args.billNumber,
-          memo: args.memo,
-          items: args.items,
-        };
-
-        const result = await client.mutate(mutation, { input });
-
-        if (!result.billCreate.didSucceed) {
-          throw new Error(`Failed to create bill: ${JSON.stringify(result.billCreate.inputErrors)}`);
-        }
-
-        return result.billCreate.bill;
-      },
+      handler: async () => unsupported('Creating a bill'),
     },
 
     wave_update_bill: {
-      description: 'Update an existing bill',
+      description: UNSUPPORTED + 'Update a bill (no billUpdate mutation exists; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -229,48 +93,11 @@ export function registerBillTools(client: WaveClient) {
         },
         required: ['billId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const mutation = `
-          mutation UpdateBill($input: BillUpdateInput!) {
-            billUpdate(input: $input) {
-              bill {
-                id
-                billNumber
-                dueDate
-                memo
-              }
-              didSucceed
-              inputErrors {
-                message
-                path
-              }
-            }
-          }
-        `;
-
-        const result = await client.mutate(mutation, {
-          input: {
-            businessId,
-            billId: args.billId,
-            billNumber: args.billNumber,
-            dueDate: args.dueDate,
-            memo: args.memo,
-          },
-        });
-
-        if (!result.billUpdate.didSucceed) {
-          throw new Error(`Failed to update bill: ${JSON.stringify(result.billUpdate.inputErrors)}`);
-        }
-
-        return result.billUpdate.bill;
-      },
+      handler: async () => unsupported('Updating a bill'),
     },
 
     wave_list_bill_payments: {
-      description: 'List payments made for a specific bill',
+      description: UNSUPPORTED + 'List bill payments (Wave public API has no bill surface; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -279,41 +106,11 @@ export function registerBillTools(client: WaveClient) {
         },
         required: ['billId'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const query = `
-          query GetBillPayments($businessId: ID!, $billId: ID!) {
-            business(id: $businessId) {
-              bill(id: $billId) {
-                id
-                payments {
-                  id
-                  amount {
-                    value
-                    currency { code }
-                  }
-                  date
-                  source
-                  createdAt
-                }
-              }
-            }
-          }
-        `;
-
-        const result = await client.query(query, {
-          businessId,
-          billId: args.billId,
-        });
-
-        return result.business.bill.payments;
-      },
+      handler: async () => unsupported('Listing bill payments'),
     },
 
     wave_create_bill_payment: {
-      description: 'Record a payment made for a bill',
+      description: UNSUPPORTED + 'Record a bill payment (no billPaymentCreate mutation exists; use SP-API or CSV export)',
       parameters: {
         type: 'object',
         properties: {
@@ -325,47 +122,7 @@ export function registerBillTools(client: WaveClient) {
         },
         required: ['billId', 'amount', 'date'],
       },
-      handler: async (args: any) => {
-        const businessId = args.businessId || client.getBusinessId();
-        if (!businessId) throw new Error('businessId required');
-
-        const mutation = `
-          mutation CreateBillPayment($input: BillPaymentCreateInput!) {
-            billPaymentCreate(input: $input) {
-              payment {
-                id
-                amount {
-                  value
-                  currency { code }
-                }
-                date
-                source
-              }
-              didSucceed
-              inputErrors {
-                message
-                path
-              }
-            }
-          }
-        `;
-
-        const result = await client.mutate(mutation, {
-          input: {
-            businessId,
-            billId: args.billId,
-            amount: args.amount,
-            date: args.date,
-            source: args.source,
-          },
-        });
-
-        if (!result.billPaymentCreate.didSucceed) {
-          throw new Error(`Failed to create payment: ${JSON.stringify(result.billPaymentCreate.inputErrors)}`);
-        }
-
-        return result.billPaymentCreate.payment;
-      },
+      handler: async () => unsupported('Recording a bill payment'),
     },
   };
 }
