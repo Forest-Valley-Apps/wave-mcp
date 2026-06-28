@@ -210,7 +210,6 @@ export function registerCustomerTools(client: WaveClient) {
       parameters: {
         type: 'object',
         properties: {
-          businessId: { type: 'string', description: 'Business ID' },
           customerId: { type: 'string', description: 'Customer ID' },
           name: { type: 'string', description: 'Customer name' },
           firstName: { type: 'string', description: 'First name' },

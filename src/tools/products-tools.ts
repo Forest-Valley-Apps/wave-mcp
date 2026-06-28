@@ -191,7 +191,6 @@ export function registerProductTools(client: WaveClient) {
       parameters: {
         type: 'object',
         properties: {
-          businessId: { type: 'string', description: 'Business ID' },
           productId: { type: 'string', description: 'Product ID' },
           name: { type: 'string', description: 'Product name' },
           description: { type: 'string', description: 'Product description' },

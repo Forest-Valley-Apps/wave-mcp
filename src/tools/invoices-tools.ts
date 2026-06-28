@@ -299,7 +299,6 @@ export function registerInvoiceTools(client: WaveClient) {
       parameters: {
         type: 'object',
         properties: {
-          businessId: { type: 'string', description: 'Business ID' },
           invoiceId: { type: 'string', description: 'Invoice ID' },
           title: { type: 'string', description: 'Invoice title' },
           subhead: { type: 'string', description: 'Invoice subhead' },
