@@ -4,3 +4,4 @@ build/
 .cursor/mcp.json
 invoicing-config.json
 memories/private/
+.DS_Store

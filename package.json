@@ -1,7 +1,7 @@
 {
   "name": "wave-mcp",
   "version": "1.0.0",
-  "description": "MCP server for Wave Accounting — invoicing, customers, bills, reporting via GraphQL",
+  "description": "MCP server for Wave Accounting: invoicing, customers, products, transaction entry and reporting via GraphQL. Wave's public API has no bill schema, so bill tools report themselves unsupported.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
+    "test": "npm run build && node --test \"build/**/*.test.js\"",
     "watch": "tsc --watch",
     "dev": "tsc && node build/main.js"
   },

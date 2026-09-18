@@ -12,7 +12,7 @@ An MCP server for [Wave Accounting](https://waveapps.com), providing access to i
 | **Customers** | 6 | List, get, create, update, delete, search by name/email |
 | **Products** | 5 | List, get, create, update, archive products and services |
 | **Accounts** | 4 | List, get, create, update chart of accounts |
-| **Transactions** | 6 | _Unsupported by Wave's public API_ - no transaction reads, no update/categorize mutations; the only write is the beta `moneyTransactionCreate` (blind write, no read-back). These tools return a clear "unsupported" error. Use the SP-API MCP or a Wave web-UI CSV export. |
+| **Transactions** | 7 | Create one (`moneyTransactionCreate`) or many (`moneyTransactionsCreate`) money transactions from double-entry input (anchor + balancing line items); entries are validated and proved to balance before sending, and a content-derived `externalId` keeps a re-run from double-posting. _Reads and edits are unsupported by Wave's public API_ - no transaction reads, no update/categorize/delete mutations, so those 5 tools return a clear "unsupported" error. Use the SP-API MCP or a Wave web-UI CSV export to inspect transactions. |
 | **Bills** | 6 | _Unsupported by Wave's public API_ - no bill reads and zero bill mutations. These tools return a clear "unsupported" error. Use the SP-API MCP or a Wave web-UI CSV export. |
 | **Estimates** | 6 | List, get, create, update, send, convert to invoice |
 | **Taxes** | 3 | List, get, create sales taxes |
@@ -43,7 +43,7 @@ npm run build
 # Required
 export WAVE_ACCESS_TOKEN=your_oauth2_access_token
 
-# Optional — set a default business ID so you don't have to pass it every call
+# Optional - set a default business ID so you don't have to pass it every call
 export WAVE_BUSINESS_ID=your_business_id
 ```
 
@@ -100,7 +100,7 @@ wave_search_customers({ query: "acme" })
 
 ```
 src/
-├── main.ts                 # Entry point — reads env, starts server
+├── main.ts                 # Entry point - reads env, starts server
 ├── server.ts               # MCP server setup, request routing
 ├── client.ts               # Wave GraphQL API client (gql.waveapps.com)
 ├── types/index.ts           # TypeScript types for all Wave entities
@@ -109,7 +109,8 @@ src/
 │   ├── customers-tools.ts   # 6 customer tools
 │   ├── products-tools.ts    # 5 product tools
 │   ├── accounts-tools.ts    # 4 account tools
-│   ├── transactions-tools.ts # 6 transaction tools
+│   ├── transactions-tools.ts # 7 transaction tools (2 create, 5 unsupported reads/edits)
+│   ├── transaction-input.ts # double-entry validation + deterministic externalId
 │   ├── bills-tools.ts       # 6 bill tools
 │   ├── estimates-tools.ts   # 6 estimate tools
 │   ├── taxes-tools.ts       # 3 tax tools
